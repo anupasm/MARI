@@ -1,7 +1,8 @@
 const { MerkleTree } = require("./merkeltree");
 const merkleTree = new MerkleTree();
 
-K = []
+addresses = ['0x7a7a153759e1555c9A36eed9321060Fb386E2D75','0xD7690135C9b4491c3161871E8F75845093113923']
+K = {}
 for (let b = 0; b < 2; b++) {
     KK = []
     for (let a = 0; a < 4; a++) {
@@ -17,7 +18,7 @@ for (let b = 0; b < 2; b++) {
 
         KK.push([xs, ks]);
     }
-    K.push(KK);
+    K[addresses[b]] = KK;
 }
 
 merkleTree.LL(K)

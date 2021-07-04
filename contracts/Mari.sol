@@ -12,9 +12,9 @@ contract Mari {
     event NewContract(uint256 index);
     event Root(bytes32 proofElement);
 
-    function newContract(bytes32 lock, uint256 expire) public payable {
+    function newContract(bytes32 lock) public payable {
         require(msg.value > 0);
-
+        uint256 expire = 10;
         contracts[msg.sender].push(Contract(msg.value, lock, expire));
         uint256 id = contracts[msg.sender].length - 1;
         emit NewContract(id);
@@ -78,8 +78,16 @@ contract Mari {
         }
         if (layer != 1) {
             uint96 sum = uint48(bytes6(w1)) + uint48(bytes6(ln1));
-            p1 = bytes12(sum<<48);
+            p1 = bytes12(sum << 48);
         }
+    }
+
+    function _k(bytes32 l) internal pure returns (bytes12) {
+        return bytes12(uint96(uint48(bytes6(l))) << 48);
+    }
+
+    function _x(bytes32 l) internal pure returns (bytes20) {
+        return bytes20(uint160(uint256(l)));
     }
 
     function verify(
@@ -93,11 +101,8 @@ contract Mari {
         for (uint48 i = 0; i < W.length; i++) {
             uint48 height = i + 1;
 
-            (bytes12 p1,bytes32 p2,bytes32 p3) = _F(j, ln, W[i], layer);
-            ln = _concat2(
-                p1,
-                ripemd160(abi.encodePacked(height, p2, p3))
-            );
+            (bytes12 p1, bytes32 p2, bytes32 p3) = _F(j, ln, W[i], layer);
+            ln = _concat2(p1, ripemd160(abi.encodePacked(height, p2, p3)));
 
             j = j / 2;
         }
@@ -106,27 +111,40 @@ contract Mari {
     }
 
     function claim(
+        address owner, 
+        uint48 index,
         bytes32[] memory W1,
         bytes32[] memory W2,
         bytes32[] memory W3,
-        string memory x1,
+        bytes memory x1,
         bytes6 v1,
         bytes6 e1,
-        uint256 i1,
-        uint256 i2,
-        uint256 i3 // bytes32 sig
+        uint48 i1,
+        uint48 i2,
+        uint48 i3 // bytes32 sig
     ) public {
-        bytes32 h1 = _concat3(v1, e1, ripemd160(abi.encodePacked(x1)));
-        bytes32 res = verify(W1, h1, i1, 1);
-        bytes20 h2 = bytes20(uint160(uint256(res)));
-        res = verify(W2, _concat2(bytes12(uint96(uint48(bytes6(res)))<<48), ripemd160(abi.encodePacked(h2))), i2, 2);
-        bytes12 k3 = bytes12(uint96(uint48(bytes6(res)))<<48);
-        bytes20 h3 = bytes20(uint160(uint256(res)));
-        bytes memory h4 = abi.encodePacked(uint8(0),h3);
-        bytes32 mm =  _concat2(k3,ripemd160(h4));
-        bytes32 ll = verify(W3,  _concat2(k3,ripemd160(h4)), i3, 3);
-        emit Root(ll);
+        bytes32 l = verify(
+            W1,
+            _concat3(v1, e1, ripemd160(abi.encodePacked(x1))),
+            i1,
+            1
+        );
+        l = verify(
+            W2,
+            _concat2(_k(l), ripemd160(abi.encodePacked(_x(l)))),
+            i2,
+            2
+        );
+        l = verify(
+            W3,
+            _concat2(_k(l), ripemd160(abi.encodePacked(msg.sender, _x(l)))),
+            i3,
+            3
+        );
+        Contract memory c = contracts[owner][index];
+        if(c.lock == l){
+            msg.sender.transfer(uint48(v1));
+        }
+
     }
 }
-
-// https://ethereum.stackexchange.com/questions/67644/how-to-split-bytes32-into-multiples-of-8-in-solidity

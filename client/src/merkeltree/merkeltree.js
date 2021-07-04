@@ -1,4 +1,4 @@
-const { ripemd160 } = require('ethereumjs-util');
+const { ripemd160,toBuffer } = require('ethereumjs-util');
 
 class MerkleTree {
     concat(...args) {
@@ -20,7 +20,7 @@ class MerkleTree {
 
     height(l) {
         const h = Math.log2(l).toFixed(0);
-        buff = Buffer.alloc(6);
+        const buff = Buffer.alloc(6);
         buff.writeIntBE(h, 0, 6);
         return buff;
     }
@@ -87,73 +87,70 @@ class MerkleTree {
     }
 
     LL(K) {
-        var ks2 = []
-        var xs2 = []
-        K.forEach((e1, i) => {
-            var ks1 = []
-            var xs1 = []
-            console.log('-------', i);
-            e1.forEach(e2 => {
-                const res = this.L(e2[0], e2[1], 1);
-                this.P(res);
-                xs1.push(res.slice(12, 32))
-                ks1.push(res.slice(0, 12).fill(0,6,12))
+        var ks3 = []
+        var xs3 = []
+        for(const [a, keys3] of Object.entries(K)) {
+            var ks2 = []
+            var xs2 = []
+            keys3.forEach(keys2 => {
+                const k2 = this.L(keys2[0], keys2[1], 1);
+                // this.P(k2);
+                xs2.push(k2.slice(12, 32))
+                ks2.push(k2.slice(0, 12).fill(0,6,12))
             });
 
-            const res = this.L(xs1, ks1, 2);
-            this.P(res);
-            const h = res.slice(12, 32);
-            const add = Buffer.alloc(1, i);
-
-            console.log('add',Buffer.concat([add, h]),add,i,this.H(Buffer.concat([add, h])));
-            xs2.push(Buffer.concat([add, h]));
-            ks2.push(res.slice(0, 12).fill(0,6,12));
-        });
-        console.log(xs2);
-        console.log(ks2);
-        const res = this.L(xs2, ks2, 3);
-        this.P(res);
+            const k3 = this.L(xs2, ks2, 2);
+            // this.P(k3);
+            const h3 = k3.slice(12, 32);
+            const address = toBuffer(a);
+            xs3.push(Buffer.concat([address, h3]));
+            ks3.push(k3.slice(0, 12).fill(0,6,12));
+        }
+        const res = this.L(xs3, ks3, 3);
+        return res;
     }
 
     WW(K, i1, i2, i3) {
-        var ks2 = []
-        var xs2 = []
-        K.forEach((e1, index1) => {
-            var ks1 = []
-            var xs1 = []
-            e1.forEach((e2, index2) => {//prod
-                const res = this.L(e2[0], e2[1], 1);
-                if (index2 == i2 & index1 == i3) {
-                    const w1 = this.W(i1, e2[0], e2[1], 1);
-                    this.PA('witness1', w1);
-
+        var proofs = {}
+        var ks3 = []
+        var xs3 = []
+        Object.entries(K).forEach(([a, keys2], index2) => {
+            var ks2 = []
+            var xs2 = []
+            keys2.forEach((keys1, index1) => {
+                const k2 = this.L(keys1[0], keys1[1], 1);
+                if (index1 == i2 & index2 == i3) {
+                    const w1 = this.W(i1, keys1[0], keys1[1], 1);
+                    proofs[1] = w1;
+                    // this.PA('witness1', w1);
                 }
-                xs1.push(res.slice(12, 32))
-                ks1.push(res.slice(0, 12).fill(0,6,12))
+                xs2.push(k2.slice(12, 32));
+                ks2.push(k2.slice(0, 12).fill(0,6,12));
             });
-            const res = this.L(xs1, ks1, 2);
-
-            if (index1 == i3) {
-                const w2 = this.W(i2, xs1, ks1, 2);
-                this.PA('witness2', w2);
+            const k3 = this.L(xs2, ks2, 2);
+            if (index2 == i3) {
+                const w2 = this.W(i2, xs2, ks2, 2);
+                proofs[2] = w2;
+                // this.PA('witness2', w2);
             }
-            const h = res.slice(12, 32);
-            const add = Buffer.alloc(1, index1);
-            console.log(this.H(Buffer.concat([add, h])));
-
-            xs2.push(Buffer.concat([add, h]));
-            ks2.push(res.slice(0, 12).fill(0,6,12));
+            const h = k3.slice(12, 32);
+            const address = toBuffer(a);
+            xs3.push(Buffer.concat([address, h]));
+            ks3.push(k3.slice(0, 12).fill(0,6,12));
 
         });
-        const res = this.L(xs2, ks2, i3);
-        const w3 = this.W(i3, xs2, ks2, 3);
-        this.PA('witness3', w3);
-        this.P(res);
+        const res = this.L(xs3, ks3, i3);
+        const w3 = this.W(i3, xs3, ks3, 3);
+        proofs[3] = w3;
+        // this.PA('witness3', w3);
+        // this.P(res);
+        return proofs;
     }
 
 
 }
 
-module.exports = {
+
+export {
     MerkleTree,
 };
